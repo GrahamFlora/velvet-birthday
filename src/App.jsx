@@ -263,13 +263,24 @@ const ReorderList = ({ items, setItems, onSave, onCancel }) => {
                 </div>
                 
                 <p className="text-neutral-500 text-xs uppercase tracking-widest mb-4 px-2">
-                    Drag to order • Click <Edit2 size={10} className="inline"/> to rename
+                    Drag to order (Hold & move to edges to scroll) • Click <Edit2 size={10} className="inline"/> to rename
                 </p>
 
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                    <Reorder.Group axis="y" values={items} onReorder={setItems} className="space-y-3">
+                    <Reorder.Group 
+                        axis="y" 
+                        values={items} 
+                        onReorder={setItems} 
+                        className="space-y-3 pb-20"
+                        layoutScroll // Enables auto-scrolling when dragging to edges
+                    >
                         {items.map((photo) => (
-                            <Reorder.Item key={photo.id} value={photo}>
+                            <Reorder.Item 
+                                key={photo.id} 
+                                value={photo}
+                                dragMomentum={false} // Stops item from drifting when mouse stops
+                                whileDrag={{ scale: 1.02, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)", zIndex: 50, cursor: "grabbing" }}
+                            >
                                 <div className="bg-neutral-900 border border-neutral-800 p-3 rounded-lg flex items-center gap-4 cursor-grab active:cursor-grabbing hover:border-amber-500/50 transition-colors select-none">
                                     <GripVertical className="text-neutral-600 shrink-0" />
                                     <img src={photo.url} className="w-12 h-12 object-cover rounded-md bg-neutral-800 shrink-0" alt="thumbnail" />
