@@ -243,6 +243,24 @@ const ReorderList = ({ items, setItems, onSave, onCancel }) => {
     const cancelEdit = () => {
         setEditingId(null);
     };
+    
+    // NEW FUNCTIONALITY: Instantly moves the selected photo to the top (index 0)
+    const handleMoveToTop = (photoId) => {
+        setItems(prevItems => {
+            const index = prevItems.findIndex(item => item.id === photoId);
+            if (index === -1) return prevItems;
+            
+            // Create a mutable copy and splice the item out
+            const mutableItems = [...prevItems];
+            const [movedItem] = mutableItems.splice(index, 1);
+            
+            // Move the item to the beginning
+            mutableItems.unshift(movedItem); 
+            
+            return mutableItems; // Return a new array for state update
+        });
+        setEditingId(null); // Stop editing if currently active
+    };
 
     return (
         <div className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-xl flex flex-col pt-20 pb-10 px-4 md:px-0 overflow-hidden">
@@ -311,13 +329,23 @@ const ReorderList = ({ items, setItems, onSave, onCancel }) => {
                                                     <p className="text-white text-sm truncate font-medium">{photo.caption || "Untold Story"}</p>
                                                     <p className="text-neutral-500 text-xs">{formatDate(photo.date)}</p>
                                                 </div>
-                                                <button 
-                                                    onClick={() => startEditing(photo)} 
-                                                    className="p-2 text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-full transition-colors shrink-0"
-                                                    onPointerDown={(e) => e.stopPropagation()} // Prevent drag when clicking edit
-                                                >
-                                                    <Edit2 size={14} />
-                                                </button>
+                                                <div className="flex gap-2"> 
+                                                    <button 
+                                                        onClick={() => handleMoveToTop(photo.id)} 
+                                                        className="p-2 text-neutral-500 hover:text-amber-500 hover:bg-neutral-800 rounded-full transition-colors shrink-0"
+                                                        onPointerDown={(e) => e.stopPropagation()} 
+                                                        title="Move to Top"
+                                                    >
+                                                        <ArrowUp size={14} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => startEditing(photo)} 
+                                                        className="p-2 text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-full transition-colors shrink-0"
+                                                        onPointerDown={(e) => e.stopPropagation()} // Prevent drag when clicking edit
+                                                    >
+                                                        <Edit2 size={14} />
+                                                    </button>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
