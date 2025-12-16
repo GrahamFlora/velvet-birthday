@@ -125,7 +125,7 @@ const IntroGate = ({ onEnter, appName }) => {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0, scale: 1.5, filter: "blur(20px)" }}
+      exit={{ opacity: 0 }} 
       className="fixed inset-0 z-50 bg-black text-white flex flex-col items-center justify-center overflow-hidden"
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-neutral-800 via-neutral-950 to-black opacity-60" />
