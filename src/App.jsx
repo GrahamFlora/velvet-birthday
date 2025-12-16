@@ -168,7 +168,7 @@ const IntroGate = ({ onEnter, appName }) => {
   );
 };
 
-const PhotoCard = ({ photo, index, onClick, onDelete, onEdit }) => {
+const PhotoCard = ({ photo, index, onClick, onDelete, onEdit, isViewOnly }) => {
   return (
     <motion.div
       onClick={() => onClick(index)}
@@ -192,28 +192,30 @@ const PhotoCard = ({ photo, index, onClick, onDelete, onEdit }) => {
            <p className="text-neutral-400 text-xs uppercase tracking-widest mt-1">{formatDate(photo.date)}</p>
         </div>
         
-        <div className="absolute top-2 right-2 flex gap-2">
-            <button 
-            onClick={(e) => { 
-                e.stopPropagation(); 
-                onEdit(photo);
-            }}
-            className="p-2 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-600 hover:scale-110 z-50 cursor-pointer"
-            title="Edit Caption"
-            >
-            <Edit2 size={14} />
-            </button>
-            <button 
-            onClick={(e) => { 
-                e.stopPropagation(); 
-                onDelete(photo);
-            }}
-            className="p-2 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:scale-110 z-50 cursor-pointer"
-            title="Delete Memory"
-            >
-            <Trash2 size={14} />
-            </button>
-        </div>
+        {!isViewOnly && (
+            <div className="absolute top-2 right-2 flex gap-2">
+                <button 
+                onClick={(e) => { 
+                    e.stopPropagation(); 
+                    onEdit(photo);
+                }}
+                className="p-2 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-600 hover:scale-110 z-50 cursor-pointer"
+                title="Edit Caption"
+                >
+                <Edit2 size={14} />
+                </button>
+                <button 
+                onClick={(e) => { 
+                    e.stopPropagation(); 
+                    onDelete(photo);
+                }}
+                className="p-2 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:scale-110 z-50 cursor-pointer"
+                title="Delete Memory"
+                >
+                <Trash2 size={14} />
+                </button>
+            </div>
+        )}
       </div>
     </motion.div>
   );
@@ -748,6 +750,16 @@ export default function App() {
   // -- New State for Reordering
   const [isReordering, setIsReordering] = useState(false);
   const [reorderItems, setReorderItems] = useState([]);
+  
+  // -- VIEW MODE STATE (Defaults to true/View-Only) --
+  // We check for ?edit=true in URL to optionally auto-enable edit mode
+  const [isViewOnly, setIsViewOnly] = useState(() => {
+    if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('edit') === 'true' ? false : true;
+    }
+    return true;
+  });
 
   const [slideshowIndex, setSlideshowIndex] = useState(null);
   const [photos, setPhotos] = useState([]);
@@ -1149,16 +1161,18 @@ export default function App() {
           transition={{ duration: 1 }}
           className="relative pb-32"
         >
-          {/* Top Right Controls */}
-          <div className="absolute top-6 right-6 z-40">
-              <button 
-                onClick={() => setShowHeroEdit(true)}
-                className="p-3 bg-neutral-900/50 backdrop-blur-md border border-neutral-800 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
-                title="Customize Text"
-              >
-                  <Settings size={20} />
-              </button>
-          </div>
+          {/* Top Right Controls - HIDDEN IN VIEW MODE */}
+          {!isViewOnly && (
+              <div className="absolute top-6 right-6 z-40">
+                  <button 
+                    onClick={() => setShowHeroEdit(true)}
+                    className="p-3 bg-neutral-900/50 backdrop-blur-md border border-neutral-800 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+                    title="Customize Text"
+                  >
+                      <Settings size={20} />
+                  </button>
+              </div>
+          )}
 
           <section className="h-[80vh] flex flex-col justify-center px-6 md:px-20 relative overflow-hidden">
             <motion.div 
@@ -1185,8 +1199,8 @@ export default function App() {
               <div className="h-[1px] flex-1 bg-neutral-800 ml-6" />
               
               <div className="flex gap-2 ml-4">
-                 {/* Reorder Button */}
-                {photos.length > 1 && (
+                 {/* Reorder Button - HIDDEN IN VIEW MODE */}
+                {!isViewOnly && photos.length > 1 && (
                      <button 
                      onClick={startReorder}
                      className="flex items-center gap-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-full text-sm font-medium transition-colors border border-neutral-700"
@@ -1218,19 +1232,25 @@ export default function App() {
                   <ImageIcon size={48} className="text-neutral-700 mb-4" />
                   <p className="text-neutral-400 mb-6">No memories yet.</p>
                   <div className="flex gap-4">
-                    <button 
-                      onClick={() => setShowCompose(true)}
-                      className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-full font-bold transition-colors"
-                    >
-                      Add First Photo
-                    </button>
-                    <button 
-                      onClick={loadSamples}
-                      disabled={isLoadingSamples}
-                      className="px-6 py-2 border border-neutral-700 hover:bg-neutral-800 text-neutral-300 rounded-full font-medium transition-colors"
-                    >
-                      {isLoadingSamples ? "Loading..." : "Load Sample Memories"}
-                    </button>
+                    {/* Add Button - HIDDEN IN VIEW MODE */}
+                    {!isViewOnly && (
+                        <button 
+                        onClick={() => setShowCompose(true)}
+                        className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-full font-bold transition-colors"
+                        >
+                        Add First Photo
+                        </button>
+                    )}
+                     {/* Load Samples - HIDDEN IN VIEW MODE */}
+                    {!isViewOnly && (
+                        <button 
+                        onClick={loadSamples}
+                        disabled={isLoadingSamples}
+                        className="px-6 py-2 border border-neutral-700 hover:bg-neutral-800 text-neutral-300 rounded-full font-medium transition-colors"
+                        >
+                        {isLoadingSamples ? "Loading..." : "Load Sample Memories"}
+                        </button>
+                    )}
                   </div>
                </div>
             ) : (
@@ -1246,7 +1266,7 @@ export default function App() {
                     }} 
                     onDelete={handleDeleteClick} 
                     onEdit={handleEditClick}
-                    onMoveToTop={null} // Removed individual MoveToTop in favor of Reorder Mode
+                    isViewOnly={isViewOnly}
                   />
                 ))}
               </div>
@@ -1290,14 +1310,28 @@ export default function App() {
             isYouTube={isYouTube}
           />
 
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setShowCompose(true)}
-            className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-white text-black rounded-full shadow-2xl flex items-center justify-center hover:bg-amber-100 transition-colors"
-          >
-            <Plus size={24} />
-          </motion.button>
+          {/* Plus Button - HIDDEN IN VIEW MODE */}
+          {!isViewOnly && (
+            <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setShowCompose(true)}
+                className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-white text-black rounded-full shadow-2xl flex items-center justify-center hover:bg-amber-100 transition-colors"
+            >
+                <Plus size={24} />
+            </motion.button>
+          )}
+
+          {/* --- ADMIN/UNLOCK TOGGLE (Visible in footer) --- */}
+          <div className="fixed bottom-2 right-2 z-30 opacity-30 hover:opacity-100 transition-opacity">
+               <button 
+                  onClick={() => setIsViewOnly(!isViewOnly)}
+                  className="p-2 text-neutral-500 hover:text-white"
+                  title={isViewOnly ? "Unlock Edit Mode" : "Lock View Mode"}
+               >
+                   {isViewOnly ? <Lock size={12} /> : <Unlock size={12} />}
+               </button>
+          </div>
 
           {/* Modals */}
           <ComposeModal 
