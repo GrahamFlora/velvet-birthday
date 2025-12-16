@@ -226,40 +226,56 @@ const PhotoCard = ({ photo, index, onClick, onDelete, onEdit, isViewOnly }) => {
 const ReorderList = ({ items, setItems, onSave, onCancel }) => {
     const [editingId, setEditingId] = useState(null);
     const [editValue, setEditValue] = useState("");
+    // Store the original caption of the item currently being edited
+    const [originalCaption, setOriginalCaption] = useState("");
 
     const startEditing = (photo) => {
+        // 1. If we were editing another item, we treat the switch as a DISCARD,
+        // so we don't need to do anything here, as the input will be unmounted/re-rendered,
+        // and its changes were never saved to the main 'items' array yet.
+
+        // 2. Start editing the new photo
         setEditingId(photo.id);
         setEditValue(photo.caption || "");
+        setOriginalCaption(photo.caption || ""); // Store current caption as the "original"
     };
 
     const saveEdit = (id) => {
-        // Update the local state with the new caption
-        setItems(items.map(item => 
+        // Explicit Save: uses current editValue
+        setItems(prevItems => prevItems.map(item => 
             item.id === id ? { ...item, caption: editValue } : item
         ));
         setEditingId(null);
     };
 
     const cancelEdit = () => {
+        // Explicit Discard: Resetting editingId will unmount the input.
+        // The list item retains the caption it had (originalCaption).
+        // If the user modified the caption but didn't save, this ensures the change is truly lost.
         setEditingId(null);
+        // We don't need to manually update items here, as originalCaption is already in the list state,
+        // and saveEdit/startEditing are the only ways to update it.
     };
     
     // NEW FUNCTIONALITY: Instantly moves the selected photo to the top (index 0)
     const handleMoveToTop = (photoId) => {
+        // 1. Implicit Discard: If an edit was active, discard the typed text (editValue)
+        // by only applying the item's current caption from the list state.
+        if (editingId) {
+            setEditingId(null); // This discards the active input
+        }
+
+        // 2. Perform the Move
         setItems(prevItems => {
             const index = prevItems.findIndex(item => item.id === photoId);
             if (index === -1) return prevItems;
             
-            // Create a mutable copy and splice the item out
             const mutableItems = [...prevItems];
             const [movedItem] = mutableItems.splice(index, 1);
-            
-            // Move the item to the beginning
             mutableItems.unshift(movedItem); 
             
-            return mutableItems; // Return a new array for state update
+            return mutableItems;
         });
-        setEditingId(null); // Stop editing if currently active
     };
 
     return (
@@ -326,6 +342,7 @@ const ReorderList = ({ items, setItems, onSave, onCancel }) => {
                                         ) : (
                                             <div className="flex justify-between items-center w-full">
                                                 <div className="truncate pr-2">
+                                                    {/* This always displays the caption from the items list */}
                                                     <p className="text-white text-sm truncate font-medium">{photo.caption || "Untold Story"}</p>
                                                     <p className="text-neutral-500 text-xs">{formatDate(photo.date)}</p>
                                                 </div>
