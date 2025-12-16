@@ -28,10 +28,10 @@ const firebaseConfig = {
   messagingSenderId: "802736072532",
   appId: "1:802736072532:web:07a7810919522f674a0ac1"
 };
-const appId = 'velvet-birthday-v1'; // --- You can name this whatever you want ---
+const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'velvet-birthday';
+const appId = 'velvet-birthday';
 
 // --- UTILS ---
 const formatDate = (date) => {
