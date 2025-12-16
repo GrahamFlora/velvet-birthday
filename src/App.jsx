@@ -125,7 +125,7 @@ const IntroGate = ({ onEnter, appName }) => {
     <motion.div 
       initial={{ opacity: 1 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }} // Simple fade out, removed heavy blur/scale
+      exit={{ opacity: 0, scale: 1.5, filter: "blur(20px)" }} // Restored premium exit animation
       transition={{ duration: 0.8 }}
       className="fixed inset-0 z-50 bg-black text-white flex flex-col items-center justify-center overflow-hidden"
     >
@@ -1167,11 +1167,12 @@ export default function App() {
   const saveReorder = async () => {
       if(!user) return;
       setIsReordering(false);
-      // Batch update ALL photos with new index
+      // Batch update ALL photos with new index AND caption
       const batch = writeBatch(db);
       reorderItems.forEach((photo, index) => {
           const ref = doc(db, 'artifacts', appId, 'public', 'data', 'photos', photo.id);
-          batch.update(ref, { customOrder: index });
+          // Update both order and caption
+          batch.update(ref, { customOrder: index, caption: photo.caption });
       });
       
       try {
