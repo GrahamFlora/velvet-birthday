@@ -443,7 +443,7 @@ const SlideshowModal = ({ photos, initialIndex, onClose, autoPlay = false }) => 
       initial={{ opacity: 0 }} 
       animate={{ opacity: 1 }} 
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-xl flex items-center justify-center"
+      className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-xl flex items-center justify-center text-white"
     >
       <button onClick={onClose} className="absolute top-6 right-6 text-white/50 hover:text-white z-50 p-2 bg-neutral-800/50 rounded-full transition-colors">
         <X size={24} />
@@ -465,22 +465,26 @@ const SlideshowModal = ({ photos, initialIndex, onClose, autoPlay = false }) => 
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 1.05 }}
           transition={{ duration: 0.8, ease: "anticipate" }}
-          className="relative max-w-full max-h-full p-4 flex flex-col items-center justify-center h-full w-full pb-24"
+          // Added pt-16 and increased pb-32 for better clearance. Changed layout to better manage vertical space
+          className="relative max-w-full max-h-full p-4 flex flex-col items-center justify-start h-full w-full pt-16 pb-32"
         >
-          <div className="relative max-h-[75vh] w-auto">
+          {/* Image Container: Takes up available space, centered */}
+          <div className="relative flex-1 w-full flex items-center justify-center max-h-[80%]">
             <img 
               src={currentPhoto.url} 
               alt={currentPhoto.caption} 
-              className="max-h-[75vh] max-w-[90vw] object-contain shadow-2xl rounded-sm"
+              className="max-h-full max-w-full object-contain shadow-2xl rounded-sm"
             />
           </div>
+          
+          {/* Caption Container: Fixed max height, scrolls if necessary, shrinks to fit. */}
           <motion.div 
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="mt-6 text-center max-w-2xl px-4"
+            className="mt-6 text-center max-w-2xl px-4 shrink-0 max-h-[15vh] overflow-y-auto" // Enforce max height and scrolling
           >
-             <h3 className="text-2xl md:text-3xl font-serif text-amber-500 italic mb-2">"{currentPhoto.caption}"</h3>
+             <h3 className="text-xl md:text-3xl font-serif text-amber-500 italic mb-2">"{currentPhoto.caption}"</h3>
              <p className="text-neutral-500 text-sm tracking-widest uppercase">{formatDate(currentPhoto.date)} • {index + 1} of {photos.length}</p>
           </motion.div>
         </motion.div>
