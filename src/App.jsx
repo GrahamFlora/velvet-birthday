@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Play, Pause, Plus, Image as ImageIcon, MessageSquare, 
   X, ChevronDown, ChevronLeft, ChevronRight, Sparkles, Heart, Upload, Music2, 
-  ArrowRight, Maximize2, Gift, Loader2, Volume2, VolumeX, Share2, Trash2, Edit2, Settings, Link as LinkIcon, Check, AlertCircle, Youtube, PlayCircle, Type
+  ArrowRight, Maximize2, Gift, Loader2, Volume2, VolumeX, Share2, Trash2, Edit2, Settings, Link as LinkIcon, Check, AlertCircle, Youtube, PlayCircle, Type, ArrowUp, GripVertical, Save, Lock, Unlock
 } from 'lucide-react';
-import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform, useSpring, Reorder } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -123,9 +123,10 @@ const IntroGate = ({ onEnter, appName }) => {
 
   return (
     <motion.div 
-      initial={{ opacity: 0 }}
+      initial={{ opacity: 1 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }} 
+      exit={{ opacity: 0 }} // Simple fade out, removed heavy blur/scale
+      transition={{ duration: 0.8 }}
       className="fixed inset-0 z-50 bg-black text-white flex flex-col items-center justify-center overflow-hidden"
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-neutral-800 via-neutral-950 to-black opacity-60" />
@@ -1150,17 +1151,16 @@ export default function App() {
           </div>
       )}
 
+      {/* Intro Gate - Always rendered if !hasEntered */}
       <AnimatePresence>
         {!hasEntered && <IntroGate onEnter={handleEnter} appName={heroData.appName} />}
       </AnimatePresence>
 
-      {hasEntered && (
-        <motion.div 
-          initial={{ opacity: 1 }} 
-          animate={{ opacity: 1 }} 
-          transition={{ duration: 1 }}
-          className="relative pb-32 z-0"
-        >
+      {/* Main Content - Always rendered behind the scenes, NO CONDITIONAL RENDERING */}
+      <motion.div 
+        // Removing initial opacity 0/1 transition to ensure it's always ready
+        className="relative pb-32 z-0"
+      >
           {/* Top Right Controls - HIDDEN IN VIEW MODE */}
           {!isViewOnly && (
               <div className="absolute top-6 right-6 z-40">
@@ -1386,8 +1386,7 @@ export default function App() {
              )}
           </AnimatePresence>
           
-        </motion.div>
-      )}
+      </motion.div>
     </div>
   );
 }
