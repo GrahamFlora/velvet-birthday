@@ -1054,7 +1054,7 @@ export default function App() {
         setIsPlaying(false);
       }).catch(() => {
         setIsPlaying(false);
-      });
+      }).catch((e) => {});
     } else {
       audioRef.current.pause();
       setIsPlaying(false);
@@ -1156,10 +1156,10 @@ export default function App() {
 
       {hasEntered && (
         <motion.div 
-          initial={{ opacity: 0 }} 
+          initial={{ opacity: 1 }} 
           animate={{ opacity: 1 }} 
           transition={{ duration: 1 }}
-          className="relative pb-32"
+          className="relative pb-32 z-0"
         >
           {/* Top Right Controls - HIDDEN IN VIEW MODE */}
           {!isViewOnly && (
