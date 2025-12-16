@@ -222,6 +222,40 @@ const PhotoCard = ({ photo, index, onClick, onDelete, onEdit, isViewOnly }) => {
   );
 };
 
+// --- MESSAGE CARD COMPONENT ---
+const MessageCard = ({ msg, isViewOnly, onDelete, onEdit }) => {
+    return (
+        <div key={msg.id} className="border-l-2 border-amber-500/30 pl-6 py-2 relative group">
+            <p className="text-xl text-neutral-200 font-light leading-relaxed mb-4">"{msg.text}"</p>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-[1px] bg-neutral-700" />
+                    <span className="text-sm font-bold text-amber-500 uppercase tracking-wider">{msg.sender}</span>
+                </div>
+                
+                {!isViewOnly && (
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <button 
+                            onClick={(e) => { e.stopPropagation(); onEdit(msg); }}
+                            className="p-1 text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-full transition-colors"
+                            title="Edit Message"
+                        >
+                            <Edit2 size={16} />
+                        </button>
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onDelete(msg); }}
+                            className="p-1 text-neutral-500 hover:text-red-500 hover:bg-neutral-800 rounded-full transition-colors"
+                            title="Delete Message"
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 // --- REORDER & EDIT LIST COMPONENT ---
 const ReorderList = ({ items, setItems, onSave, onCancel }) => {
     const [editingId, setEditingId] = useState(null);
@@ -497,7 +531,11 @@ const FloatingPlayer = ({ isPlaying, togglePlay, isMuted, toggleMute, onShare, h
 );
 
 const ComposeModal = ({ isOpen, onClose, onUpload, onMessage, isUploading, initialData = null }) => {
-  const [tab, setTab] = useState('photo');
+  // Determine initial tab based on whether we are editing a photo or a message
+  const isEditingMessage = initialData && initialData.text && initialData.sender;
+  const initialTab = isEditingMessage ? 'message' : 'photo';
+  const [tab, setTab] = useState(initialTab);
+  
   const [text, setText] = useState('');
   const [sender, setSender] = useState('');
   const [editCaption, setEditCaption] = useState('');
@@ -505,9 +543,22 @@ const ComposeModal = ({ isOpen, onClose, onUpload, onMessage, isUploading, initi
 
   useEffect(() => {
     if (initialData) {
-        setTab('photo');
-        setEditCaption(initialData.caption || '');
+        if (initialData.text && initialData.sender) {
+            // Editing a Message
+            setTab('message');
+            setText(initialData.text || '');
+            setSender(initialData.sender || '');
+            setEditCaption('');
+        } else {
+            // Editing a Photo
+            setTab('photo');
+            setEditCaption(initialData.caption || '');
+            setText('');
+            setSender('');
+        }
     } else {
+        // New item - reset to photo for default add
+        setTab('photo');
         setEditCaption('');
         setText('');
         setSender('');
@@ -553,7 +604,7 @@ const ComposeModal = ({ isOpen, onClose, onUpload, onMessage, isUploading, initi
                 </>
             ) : (
                 <div className="w-full p-4 text-center text-white font-medium uppercase tracking-wider bg-neutral-800">
-                    Edit Memory
+                    {isEditingMessage ? "Edit Message" : "Edit Memory"}
                 </div>
             )}
         </div>
@@ -630,11 +681,17 @@ const ComposeModal = ({ isOpen, onClose, onUpload, onMessage, isUploading, initi
                 className="w-full bg-neutral-800 border-none rounded-lg p-3 text-white placeholder-neutral-500 h-32 resize-none focus:ring-1 focus:ring-amber-500"
               />
               <button 
-                onClick={() => { onMessage(text, sender); setText(''); onClose(); }}
+                onClick={() => { 
+                    // Pass the ID if it exists for updating
+                    onMessage(text, sender, initialData?.id); 
+                    setText(''); 
+                    setSender('');
+                    // onClose() is now handled within App after async operation
+                }}
                 disabled={!text.trim()}
                 className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-amber-50 transition-colors disabled:opacity-50"
               >
-                Sign Guestbook
+                {initialData ? "Save Message Changes" : "Sign Guestbook"}
               </button>
             </div>
           )}
@@ -648,8 +705,12 @@ const ComposeModal = ({ isOpen, onClose, onUpload, onMessage, isUploading, initi
   );
 };
 
-const ConfirmModal = ({ isOpen, onClose, onConfirm }) => {
+const ConfirmModal = ({ isOpen, onClose, onConfirm, type }) => {
   if (!isOpen) return null;
+  
+  const title = type === 'photo' ? "Delete Memory?" : "Delete Message?";
+  const description = type === 'photo' ? "This photo and its caption will be permanently removed." : "This message will be permanently removed.";
+
   return (
     <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
       <motion.div 
@@ -657,8 +718,8 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm }) => {
         animate={{ scale: 1, opacity: 1 }}
         className="bg-neutral-900 border border-neutral-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl text-center"
       >
-        <h3 className="text-xl font-serif text-white mb-2">Delete Memory?</h3>
-        <p className="text-neutral-400 mb-6">This action cannot be undone.</p>
+        <h3 className="text-xl font-serif text-white mb-2">{title}</h3>
+        <p className="text-neutral-400 mb-6">{description}</p>
         <div className="flex gap-3 justify-center">
           <button 
             onClick={onClose}
@@ -877,8 +938,12 @@ export default function App() {
   const [isUploading, setIsUploading] = useState(false);
   const [user, setUser] = useState(null);
   const [isLoadingSamples, setIsLoadingSamples] = useState(false);
+  
+  // Photo and Message Deletion/Editing States
   const [photoToDelete, setPhotoToDelete] = useState(null); 
   const [photoToEdit, setPhotoToEdit] = useState(null);
+  const [messageToEdit, setMessageToEdit] = useState(null);
+  const [messageToDelete, setMessageToDelete] = useState(null); 
   
   const [heroData, setHeroData] = useState({
       appName: DEFAULT_APP_NAME,
@@ -943,17 +1008,6 @@ export default function App() {
     const unsubP = onSnapshot(qP, snap => {
       const data = snap.docs.map(d => ({id: d.id, ...d.data()}));
       
-      // Client-side Sort
-      // 1. Sort by customOrder (asc)
-      // 2. If no customOrder, use createdAt (desc) but place them AFTER ordered items?
-      //    Actually, let's treat no-order items as having order=Infinity (bottom) or -Infinity (top).
-      //    Let's put new items at the TOP (-Infinity) by default if we want new uploads to be first.
-      //    BUT if user reorders, we want that to stick.
-      //    Strategy:
-      //    - If `customOrder` exists, use it.
-      //    - If NOT, use timestamp.
-      //    - We need a consistent way to mix them.
-      
       data.sort((a, b) => {
           const orderA = a.customOrder !== undefined ? a.customOrder : Number.MAX_SAFE_INTEGER;
           const orderB = b.customOrder !== undefined ? b.customOrder : Number.MAX_SAFE_INTEGER;
@@ -961,7 +1015,6 @@ export default function App() {
           if (orderA !== orderB) {
               return orderA - orderB;
           }
-          // If both are unordered (or have same order), fallback to date desc
           const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
           const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
           return dateB - dateA; // Descending
@@ -1048,6 +1101,7 @@ export default function App() {
     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#D4AF37', '#ffffff'] });
   };
 
+  // --- PHOTO HANDLERS ---
   const handleUpload = async (e, captionOverride, editData) => {
     if (editData) {
         try {
@@ -1057,7 +1111,7 @@ export default function App() {
             setPhotoToEdit(null);
         } catch (err) {
             console.error("Edit failed:", err);
-            alert("Failed to update caption.");
+            // No alert due to rule, console.error is sufficient
         }
         return;
     }
@@ -1075,19 +1129,74 @@ export default function App() {
           date: new Date().toISOString(), 
           createdAt: serverTimestamp(), 
           userId: user.uid,
-          // Newly added photos get no order, falling back to date desc (so they appear top if un-ordered, or bottom if everyone has order... wait)
-          // To ensure they appear at TOP by default, we rely on the sort logic (customOrder: undefined vs defined).
-          // If we want them first, we can give them customOrder: -1 temporarily, or just let them float.
         });
       }
       setShowCompose(false);
     } catch (err) { 
         console.error("Upload error details:", err); 
-        alert(`Upload failed: ${err.message}. Please try again.`);
     } 
     finally { setIsUploading(false); }
   };
 
+  const handleDeleteClick = (photo) => setPhotoToDelete(photo);
+  const handleEditClick = (photo) => setPhotoToEdit(photo);
+
+  const confirmDelete = async () => {
+    if (photoToDelete) {
+        try {
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'photos', photoToDelete.id));
+            if (slideshowIndex !== null) setSlideshowIndex(null);
+        } catch (error) {
+            console.error("Photo Delete failed:", error);
+        }
+        setPhotoToDelete(null);
+    } else if (messageToDelete) {
+        try {
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'messages', messageToDelete.id));
+        } catch (error) {
+            console.error("Message Delete failed:", error);
+        }
+        setMessageToDelete(null);
+    }
+  };
+
+
+  // --- MESSAGE HANDLERS (FIXED) ---
+  const handleMessage = async (text, sender, msgId) => {
+    if (!user || !text.trim()) return;
+    
+    let messageData = {
+        text, 
+        sender: sender || "Friend", 
+        userId: user.uid
+    };
+
+    try {
+        if (msgId) {
+            // Updating existing message
+            messageData.updatedAt = serverTimestamp();
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'messages', msgId), messageData);
+        } else {
+            // Adding new message
+            messageData.createdAt = serverTimestamp();
+            // ONLY include fields with valid values (createdAt in this case, updatedAt is omitted)
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), messageData);
+        }
+    } catch (e) {
+        console.error("Message operation failed:", e);
+    }
+    setMessageToEdit(null);
+    setShowCompose(false); // Close modal regardless of operation success
+  };
+
+  const handleMessageEditClick = (msg) => {
+    setMessageToEdit(msg);
+    setShowCompose(true);
+  };
+
+  const handleMessageDeleteClick = (msg) => setMessageToDelete(msg);
+
+  // --- GENERAL HANDLERS ---
   const handleHeroSave = async (newData) => {
       if (!user) return;
       try {
@@ -1095,30 +1204,7 @@ export default function App() {
           setShowHeroEdit(false);
       } catch (e) {
           console.error("Failed to save config", e);
-          alert("Could not save changes.");
       }
-  };
-
-  const handleMessage = async (text, sender) => {
-    if (!user) return;
-    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), {
-      text, sender: sender || "Friend", createdAt: serverTimestamp()
-    });
-    setShowCompose(false);
-  };
-
-  const handleDeleteClick = (photo) => setPhotoToDelete(photo);
-  const handleEditClick = (photo) => setPhotoToEdit(photo);
-
-  const confirmDelete = async () => {
-    if (!photoToDelete) return;
-    try {
-        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'photos', photoToDelete.id));
-        if (slideshowIndex !== null) setSlideshowIndex(null);
-    } catch (error) {
-        console.error("Delete failed:", error);
-    }
-    setPhotoToDelete(null);
   };
 
   const safePlay = () => {
@@ -1235,9 +1321,17 @@ export default function App() {
           await batch.commit();
       } catch(err) {
           console.error("Failed to save order", err);
-          alert("Failed to save new order.");
       }
   };
+  
+  const closeComposeModal = () => {
+      setShowCompose(false);
+      setPhotoToEdit(null);
+      setMessageToEdit(null);
+  };
+  
+  // Determine which item is being deleted for the Confirm Modal
+  const itemToDeleteType = photoToDelete ? 'photo' : (messageToDelete ? 'message' : null);
 
   return (
     <div className={`min-h-screen ${BG_COLOR} text-white font-sans selection:bg-amber-500/30`}>
@@ -1393,13 +1487,13 @@ export default function App() {
                      <p className="text-neutral-500 italic">No messages yet. Be the first to sign the card.</p>
                    ) : (
                      messages.map(msg => (
-                       <div key={msg.id} className="border-l-2 border-amber-500/30 pl-6 py-2">
-                         <p className="text-xl text-neutral-200 font-light leading-relaxed mb-4">"{msg.text}"</p>
-                         <div className="flex items-center gap-3">
-                           <div className="w-8 h-[1px] bg-neutral-700" />
-                           <span className="text-sm font-bold text-amber-500 uppercase tracking-wider">{msg.sender}</span>
-                         </div>
-                       </div>
+                       <MessageCard 
+                          key={msg.id} 
+                          msg={msg} 
+                          isViewOnly={isViewOnly}
+                          onEdit={handleMessageEditClick}
+                          onDelete={handleMessageDeleteClick}
+                       />
                      ))
                    )}
                  </div>
@@ -1445,18 +1539,19 @@ export default function App() {
 
           {/* Modals */}
           <ComposeModal 
-            isOpen={showCompose || !!photoToEdit} 
-            onClose={() => { setShowCompose(false); setPhotoToEdit(null); }}
+            isOpen={showCompose || !!photoToEdit || !!messageToEdit} 
+            onClose={closeComposeModal}
             onUpload={handleUpload}
             onMessage={handleMessage}
             isUploading={isUploading}
-            initialData={photoToEdit}
+            initialData={photoToEdit || messageToEdit}
           />
 
           <ConfirmModal 
-            isOpen={!!photoToDelete} 
-            onClose={() => setPhotoToDelete(null)} 
+            isOpen={!!photoToDelete || !!messageToDelete} 
+            onClose={() => { setPhotoToDelete(null); setMessageToDelete(null); }} 
             onConfirm={confirmDelete} 
+            type={itemToDeleteType}
           />
 
           <ShareModal 
