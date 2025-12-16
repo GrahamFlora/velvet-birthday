@@ -198,7 +198,7 @@ const PhotoCard = ({ photo, index, onClick, onDelete, onEdit }) => {
                 e.stopPropagation(); 
                 onEdit(photo);
             }}
-            className="p-2 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-amber-600 hover:scale-110 z-50 cursor-pointer"
+            className="p-2 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-600 hover:scale-110 z-50 cursor-pointer"
             title="Edit Caption"
             >
             <Edit2 size={14} />
@@ -217,6 +217,51 @@ const PhotoCard = ({ photo, index, onClick, onDelete, onEdit }) => {
       </div>
     </motion.div>
   );
+};
+
+// --- NEW: Reorder List Component ---
+const ReorderList = ({ items, setItems, onSave, onCancel }) => {
+    return (
+        <div className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-xl flex flex-col pt-20 pb-10 px-4 md:px-0 overflow-hidden">
+            <div className="max-w-md w-full mx-auto flex flex-col h-full">
+                <div className="flex justify-between items-center mb-6 px-2">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <GripVertical size={20} className="text-amber-500"/>
+                        Reorder Gallery
+                    </h3>
+                    <div className="flex gap-3">
+                         <button onClick={onCancel} className="px-4 py-2 text-sm text-neutral-400 hover:text-white transition-colors">
+                            Cancel
+                        </button>
+                        <button onClick={onSave} className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-full text-sm font-bold flex items-center gap-2">
+                            <Save size={16} /> Save
+                        </button>
+                    </div>
+                </div>
+                
+                <p className="text-neutral-500 text-xs uppercase tracking-widest mb-4 px-2">
+                    Drag items to change their order
+                </p>
+
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                    <Reorder.Group axis="y" values={items} onReorder={setItems} className="space-y-3">
+                        {items.map((photo) => (
+                            <Reorder.Item key={photo.id} value={photo}>
+                                <div className="bg-neutral-900 border border-neutral-800 p-3 rounded-lg flex items-center gap-4 cursor-grab active:cursor-grabbing hover:border-amber-500/50 transition-colors select-none">
+                                    <GripVertical className="text-neutral-600" />
+                                    <img src={photo.url} className="w-12 h-12 object-cover rounded-md bg-neutral-800" alt="thumbnail" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-white text-sm truncate font-medium">{photo.caption || "Untold Story"}</p>
+                                        <p className="text-neutral-500 text-xs">{formatDate(photo.date)}</p>
+                                    </div>
+                                </div>
+                            </Reorder.Item>
+                        ))}
+                    </Reorder.Group>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 const SlideshowModal = ({ photos, initialIndex, onClose, autoPlay = false }) => {
@@ -416,10 +461,10 @@ const ComposeModal = ({ isOpen, onClose, onUpload, onMessage, isUploading, initi
                          <div className="w-12 h-12 rounded-full bg-neutral-800 flex items-center justify-center group-hover:scale-110 transition-transform">
                            <Upload size={20} className="text-neutral-400" />
                          </div>
-                         <p className="text-neutral-400 text-sm">Tap to select photo</p>
+                         <p className="text-neutral-400 text-sm">Tap to select photo(s)</p>
                        </>
                      )}
-                     <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onUpload(e)} disabled={isUploading} />
+                     <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => onUpload(e)} disabled={isUploading} />
                    </div>
                 )}
              
@@ -698,8 +743,12 @@ export default function App() {
   const [showShare, setShowShare] = useState(false);
   const [showHeroEdit, setShowHeroEdit] = useState(false);
   const [isYtReady, setIsYtReady] = useState(false);
-  const [isAutoPlayingSlideshow, setIsAutoPlayingSlideshow] = useState(false); // New state for slideshow
+  const [isAutoPlayingSlideshow, setIsAutoPlayingSlideshow] = useState(false); 
   
+  // -- New State for Reordering
+  const [isReordering, setIsReordering] = useState(false);
+  const [reorderItems, setReorderItems] = useState([]);
+
   const [slideshowIndex, setSlideshowIndex] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -718,8 +767,6 @@ export default function App() {
   });
 
   // Music state
-  // USE MEMO to parse the YouTube ID immediately on render
-  // This prevents the <audio> tag from trying to load a YouTube URL during the first render cycle
   const youtubeId = useMemo(() => getYouTubeId(heroData.musicUrl), [heroData.musicUrl]);
   const isLikelyYouTube = useMemo(() => isYouTubeUrl(heroData.musicUrl), [heroData.musicUrl]);
   const isYouTube = !!youtubeId;
@@ -769,9 +816,35 @@ export default function App() {
         }
     });
     
-    const qP = query(collection(db, 'artifacts', appId, 'public', 'data', 'photos'), orderBy('createdAt', 'desc'));
+    // Updated Query: Get all, we sort client side to handle mixed customOrder/createdAt
+    const qP = query(collection(db, 'artifacts', appId, 'public', 'data', 'photos'));
     const unsubP = onSnapshot(qP, snap => {
       const data = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      
+      // Client-side Sort
+      // 1. Sort by customOrder (asc)
+      // 2. If no customOrder, use createdAt (desc) but place them AFTER ordered items?
+      //    Actually, let's treat no-order items as having order=Infinity (bottom) or -Infinity (top).
+      //    Let's put new items at the TOP (-Infinity) by default if we want new uploads to be first.
+      //    BUT if user reorders, we want that to stick.
+      //    Strategy:
+      //    - If `customOrder` exists, use it.
+      //    - If NOT, use timestamp.
+      //    - We need a consistent way to mix them.
+      
+      data.sort((a, b) => {
+          const orderA = a.customOrder !== undefined ? a.customOrder : Number.MAX_SAFE_INTEGER;
+          const orderB = b.customOrder !== undefined ? b.customOrder : Number.MAX_SAFE_INTEGER;
+          
+          if (orderA !== orderB) {
+              return orderA - orderB;
+          }
+          // If both are unordered (or have same order), fallback to date desc
+          const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+          const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+          return dateB - dateA; // Descending
+      });
+
       setPhotos(data); 
     });
 
@@ -803,7 +876,6 @@ export default function App() {
   }, [heroData.musicUrl, isLikelyYouTube]);
 
   // Initialize YouTube Player
-  // We strictly depend on `hasEntered` because the #youtube-player div only exists then
   useEffect(() => {
     if (isYouTube && youtubeId && hasEntered && isYtReady && window.YT && window.YT.Player) {
         if (ytPlayerRef.current) {
@@ -811,7 +883,7 @@ export default function App() {
         }
 
         ytPlayerRef.current = new window.YT.Player('youtube-player', {
-            height: '200', // Making it larger but invisible to trick browsers that block tiny players
+            height: '200', 
             width: '200',
             videoId: youtubeId,
             playerVars: {
@@ -819,7 +891,7 @@ export default function App() {
                 'controls': 0,
                 'loop': 1,
                 'playlist': youtubeId,
-                'origin': window.location.origin // Critical for security/CORS
+                'origin': window.location.origin 
             },
             events: {
                 'onReady': (event) => {
@@ -880,7 +952,10 @@ export default function App() {
           caption: captionOverride || "Untold Story", 
           date: new Date().toISOString(), 
           createdAt: serverTimestamp(), 
-          userId: user.uid
+          userId: user.uid,
+          // Newly added photos get no order, falling back to date desc (so they appear top if un-ordered, or bottom if everyone has order... wait)
+          // To ensure they appear at TOP by default, we rely on the sort logic (customOrder: undefined vs defined).
+          // If we want them first, we can give them customOrder: -1 temporarily, or just let them float.
         });
       }
       setShowCompose(false);
@@ -1017,6 +1092,30 @@ export default function App() {
     }
   };
 
+  // --- REORDER LOGIC ---
+  const startReorder = () => {
+      setReorderItems([...photos]); // Copy current photos to local state
+      setIsReordering(true);
+  };
+  
+  const saveReorder = async () => {
+      if(!user) return;
+      setIsReordering(false);
+      // Batch update ALL photos with new index
+      const batch = writeBatch(db);
+      reorderItems.forEach((photo, index) => {
+          const ref = doc(db, 'artifacts', appId, 'public', 'data', 'photos', photo.id);
+          batch.update(ref, { customOrder: index });
+      });
+      
+      try {
+          await batch.commit();
+      } catch(err) {
+          console.error("Failed to save order", err);
+          alert("Failed to save new order.");
+      }
+  };
+
   return (
     <div className={`min-h-screen ${BG_COLOR} text-white font-sans selection:bg-amber-500/30`}>
       {/* Hidden Audio Players */}
@@ -1085,19 +1184,33 @@ export default function App() {
               <h3 className="text-2xl font-serif">The Gallery</h3>
               <div className="h-[1px] flex-1 bg-neutral-800 ml-6" />
               
-              {/* Play Slideshow Button */}
-              {photos.length > 0 && (
-                <button 
-                  onClick={() => {
-                      setSlideshowIndex(0);
-                      setIsAutoPlayingSlideshow(true);
-                  }}
-                  className="ml-4 flex items-center gap-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-full text-sm font-medium transition-colors border border-neutral-700"
-                >
-                  <PlayCircle size={16} className="text-amber-500" />
-                  Play Slideshow
-                </button>
-              )}
+              <div className="flex gap-2 ml-4">
+                 {/* Reorder Button */}
+                {photos.length > 1 && (
+                     <button 
+                     onClick={startReorder}
+                     className="flex items-center gap-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-full text-sm font-medium transition-colors border border-neutral-700"
+                     title="Drag to Reorder"
+                   >
+                     <GripVertical size={16} className="text-neutral-400" />
+                     <span className="hidden md:inline">Reorder</span>
+                   </button>
+                )}
+
+                {/* Play Slideshow Button */}
+                {photos.length > 0 && (
+                    <button 
+                    onClick={() => {
+                        setSlideshowIndex(0);
+                        setIsAutoPlayingSlideshow(true);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-full text-sm font-medium transition-colors border border-neutral-700"
+                    >
+                    <PlayCircle size={16} className="text-amber-500" />
+                    <span className="hidden md:inline">Play Slideshow</span>
+                    </button>
+                )}
+              </div>
             </div>
             
             {photos.length === 0 ? (
@@ -1123,10 +1236,18 @@ export default function App() {
             ) : (
               <div className="columns-2 md:columns-3 lg:columns-4 gap-6 space-y-6">
                 {photos.map((photo, i) => (
-                  <PhotoCard key={photo.id} photo={photo} index={i} onClick={(idx) => {
+                  <PhotoCard 
+                    key={photo.id} 
+                    photo={photo} 
+                    index={i} 
+                    onClick={(idx) => {
                       setSlideshowIndex(idx);
                       setIsAutoPlayingSlideshow(false); // Manual click stops auto
-                  }} onDelete={handleDeleteClick} onEdit={handleEditClick} />
+                    }} 
+                    onDelete={handleDeleteClick} 
+                    onEdit={handleEditClick}
+                    onMoveToTop={null} // Removed individual MoveToTop in favor of Reorder Mode
+                  />
                 ))}
               </div>
             )}
@@ -1162,7 +1283,7 @@ export default function App() {
           <FloatingPlayer 
             isPlaying={isPlaying} 
             togglePlay={togglePlay} 
-            isMuted={isMuted}
+            isMuted={isMuted} 
             toggleMute={toggleMute}
             onShare={() => setShowShare(true)}
             hasError={audioError}
@@ -1218,6 +1339,17 @@ export default function App() {
                 autoPlay={isAutoPlayingSlideshow}
               />
             )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+             {isReordering && (
+                 <ReorderList 
+                    items={reorderItems} 
+                    setItems={setReorderItems} 
+                    onSave={saveReorder} 
+                    onCancel={() => setIsReordering(false)} 
+                 />
+             )}
           </AnimatePresence>
           
         </motion.div>
