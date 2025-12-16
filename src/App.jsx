@@ -222,28 +222,48 @@ const PhotoCard = ({ photo, index, onClick, onDelete, onEdit, isViewOnly }) => {
   );
 };
 
-// --- NEW: Reorder List Component ---
+// --- REORDER & EDIT LIST COMPONENT ---
 const ReorderList = ({ items, setItems, onSave, onCancel }) => {
+    const [editingId, setEditingId] = useState(null);
+    const [editValue, setEditValue] = useState("");
+
+    const startEditing = (photo) => {
+        setEditingId(photo.id);
+        setEditValue(photo.caption || "");
+    };
+
+    const saveEdit = (id) => {
+        // Update the local state with the new caption
+        setItems(items.map(item => 
+            item.id === id ? { ...item, caption: editValue } : item
+        ));
+        setEditingId(null);
+    };
+
+    const cancelEdit = () => {
+        setEditingId(null);
+    };
+
     return (
         <div className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-xl flex flex-col pt-20 pb-10 px-4 md:px-0 overflow-hidden">
             <div className="max-w-md w-full mx-auto flex flex-col h-full">
                 <div className="flex justify-between items-center mb-6 px-2">
                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
                         <GripVertical size={20} className="text-amber-500"/>
-                        Reorder Gallery
+                        Reorder & Edit
                     </h3>
                     <div className="flex gap-3">
                          <button onClick={onCancel} className="px-4 py-2 text-sm text-neutral-400 hover:text-white transition-colors">
                             Cancel
                         </button>
                         <button onClick={onSave} className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-full text-sm font-bold flex items-center gap-2">
-                            <Save size={16} /> Save
+                            <Save size={16} /> Save All
                         </button>
                     </div>
                 </div>
                 
                 <p className="text-neutral-500 text-xs uppercase tracking-widest mb-4 px-2">
-                    Drag items to change their order
+                    Drag to order • Click <Edit2 size={10} className="inline"/> to rename
                 </p>
 
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
@@ -251,11 +271,44 @@ const ReorderList = ({ items, setItems, onSave, onCancel }) => {
                         {items.map((photo) => (
                             <Reorder.Item key={photo.id} value={photo}>
                                 <div className="bg-neutral-900 border border-neutral-800 p-3 rounded-lg flex items-center gap-4 cursor-grab active:cursor-grabbing hover:border-amber-500/50 transition-colors select-none">
-                                    <GripVertical className="text-neutral-600" />
-                                    <img src={photo.url} className="w-12 h-12 object-cover rounded-md bg-neutral-800" alt="thumbnail" />
+                                    <GripVertical className="text-neutral-600 shrink-0" />
+                                    <img src={photo.url} className="w-12 h-12 object-cover rounded-md bg-neutral-800 shrink-0" alt="thumbnail" />
+                                    
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-white text-sm truncate font-medium">{photo.caption || "Untold Story"}</p>
-                                        <p className="text-neutral-500 text-xs">{formatDate(photo.date)}</p>
+                                        {editingId === photo.id ? (
+                                            <div className="flex items-center gap-2" onPointerDown={(e) => e.stopPropagation()}>
+                                                <input 
+                                                    autoFocus
+                                                    value={editValue}
+                                                    onChange={(e) => setEditValue(e.target.value)}
+                                                    className="w-full bg-neutral-800 text-white text-sm border border-neutral-700 rounded px-2 py-1 focus:ring-1 focus:ring-amber-500 outline-none"
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') saveEdit(photo.id);
+                                                        if (e.key === 'Escape') cancelEdit();
+                                                    }}
+                                                />
+                                                <button onClick={() => saveEdit(photo.id)} className="p-1 text-green-500 hover:bg-neutral-800 rounded">
+                                                    <Check size={16} />
+                                                </button>
+                                                <button onClick={cancelEdit} className="p-1 text-red-500 hover:bg-neutral-800 rounded">
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex justify-between items-center w-full">
+                                                <div className="truncate pr-2">
+                                                    <p className="text-white text-sm truncate font-medium">{photo.caption || "Untold Story"}</p>
+                                                    <p className="text-neutral-500 text-xs">{formatDate(photo.date)}</p>
+                                                </div>
+                                                <button 
+                                                    onClick={() => startEditing(photo)} 
+                                                    className="p-2 text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-full transition-colors shrink-0"
+                                                    onPointerDown={(e) => e.stopPropagation()} // Prevent drag when clicking edit
+                                                >
+                                                    <Edit2 size={14} />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </Reorder.Item>
